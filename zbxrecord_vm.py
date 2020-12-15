@@ -3,18 +3,17 @@
 # Usage: 展示 VMware 的定制信息，进行报表展示。
 
 
-
 import atexit
 import time, sys
 import logging
 from config import *
+import psycopg2
 import pymysql
 from pyVmomi import vim, vmodl
 from pyVim.connect import SmartConnect, SmartConnectNoSSL, Disconnect
 
 
-def collect_properties(service_instance, view_ref, obj_type, path_set=None,
-                       include_mors=False):
+def collect_properties(service_instance, view_ref, obj_type, path_set=None, include_mors=False):
     collector = service_instance.content.propertyCollector
 
     obj_spec = vmodl.query.PropertyCollector.ObjectSpec()
@@ -98,7 +97,6 @@ def collect_properties(service_instance, view_ref, obj_type, path_set=None,
     return data
 
 
-
 def get_container_view(service_instance, obj_type, container=None):
     if not container:
         container = service_instance.content.rootFolder
@@ -109,8 +107,19 @@ def get_container_view(service_instance, obj_type, container=None):
         recursive=True
     )
     return view_ref
-    
-    
+
+def get_db_conn(type="mysql", kwargs):
+    type = type.lower()
+    if type in ("mysql",):
+        conn = pymysql.connect(**kwargs)
+        cursor = conn.cursor()
+    elif type in ("pgsql", "postgresql"):
+        conn = psycopg2.connect(**kwargs)
+        conn.autocommit = True
+    else:
+        raise Exception("not support the db type now")
+    return conn
+
 def network_info(nt_obj):
     res = " "
     if isinstance(nt_obj, str):
@@ -133,11 +142,9 @@ def network_info(nt_obj):
         return res
 
 
-def data_execute(conn_cursor, data):
+def data_execute(db_conn, data):
     """
     """
-    import pymysql
-
     print(data["name"])
     vm_vcenter_ip = data["vc.ip"]
     vm_name = data["name"]
@@ -166,16 +173,61 @@ def data_execute(conn_cursor, data):
 
     data_dict = {k: v for k, v in locals().items() if k.startswith("vm_")}
 
-    sql = "INSERT INTO `virtualmachine` (vm_vcenter_ip , vm_name , vm_uuid , vm_smbios , vm_datacenter , vm_cluster , " \
-        "vm_host , vm_powerstate , vm_boottime , vm_vmtoolstatus , vm_guestfullname , vm_datastore_set , vm_datastore_provision , " \
-        "vm_datastore_used , vm_cpu_hotadd , vm_cpu_corenum , vm_cpu_corepersocket , vm_mem_hotadd , vm_mem_size , vm_netinfo , " \
-        "vm_hostname , vm_customvalue , vm_annotation , vm_modifiedtime) " \
-        "VALUES(%(vm_vcenter_ip)s, %(vm_name)s, %(vm_uuid)s, %(vm_smbios)s, %(vm_datacenter)s, %(vm_cluster)s, %(vm_host)s, " \
-        "%(vm_powerstate)s, %(vm_boottime)s, %(vm_vmtoolstatus)s, %(vm_guestfullname)s, %(vm_datastore_set)s, %(vm_datastore_provision)s, " \
-        "%(vm_datastore_used)s, %(vm_cpu_hotadd)s, %(vm_cpu_corenum)s, %(vm_cpu_corepersocket)s, %(vm_mem_hotadd)s, %(vm_mem_size)s, " \
-        "%(vm_netinfo)s, %(vm_hostname)s, %(vm_customvalue)s, %(vm_annotation)s, %(vm_modifiedtime)s)"
+    sql = f"""
+        INSERT INTO virtualmachine (
+            vm_vcenter_ip, 
+            vm_name, 
+            vm_uuid, 
+            vm_smbios, 
+            vm_datacenter, 
+            vm_cluster,
+            vm_host, 
+            vm_powerstate, 
+            vm_boottime, 
+            vm_vmtoolstatus, 
+            vm_guestfullname, 
+            vm_datastore_set, 
+            vm_datastore_provision, 
+            vm_datastore_used, 
+            vm_cpu_hotadd, 
+            vm_cpu_corenum, 
+            vm_cpu_corepersocket, 
+            vm_mem_hotadd, 
+            vm_mem_size, 
+            vm_netinfo, 
+            vm_hostname, 
+            vm_customvalue, 
+            vm_annotation, 
+            vm_modifiedtime)
+        VALUES(
+            '{vm_vcenter_ip}', 
+            '{vm_name}', 
+            '{vm_uuid}', 
+            '{vm_smbios}', 
+            '{vm_datacenter}', 
+            '{vm_cluster}', 
+            '{vm_host}', 
+            '{vm_powerstate}', 
+            '{vm_boottime}', 
+            '{vm_vmtoolstatus}', 
+            '{vm_guestfullname}', 
+            '{vm_datastore_set}', 
+            '{vm_datastore_provision}', 
+            '{vm_datastore_used}', 
+            '{vm_cpu_hotadd}', 
+            '{vm_cpu_corenum}', 
+            '{vm_cpu_corepersocket}', 
+            '{vm_mem_hotadd}', 
+            '{vm_mem_size}', 
+            '{vm_netinfo}', 
+            '{vm_hostname}', 
+            '{vm_customvalue}', 
+            '{vm_annotation}', 
+            '{vm_modifiedtime}'
+    """
     try:
-        effect_row = cursor.execute(sql, data_dict)
+        with db_conn.cursor() as cur:
+            effect_row = cur.execute(sql)
     except Exception as e:
         print("Get error when execute sql: {!s}".format(e))
     else:
@@ -208,17 +260,8 @@ if __name__ == "__main__":
         "storage.perDatastoreUsage",
     ]
 
-    conn = pymysql.connect(
-        host = DB_HOST,
-        port = DB_PORT,
-        user = DB_USER,
-        password = DB_PASSWORD,
-        db = DB_SCHEMA,
-        charset = DB_CHARSET,
-        cursorclass = pymysql.cursors.DictCursor,
-        autocommit = True
-    )
-    cursor = conn.cursor()
+    conn = get_db_conn(VM_DB_TYPE, VM_DB_CONN_ARGS)
+    atexit.register(lambda x: x.close(), conn)
 
     for vc_name, vc_config in VCCONFIG.items():
         HOST = vc_config["vchost"]
@@ -227,13 +270,12 @@ if __name__ == "__main__":
 
         service_instance = None
         try:
-            service_instance = SmartConnectNoSSL(host=HOST,
-                                                    user=USER,
-                                                    pwd=PASSWORD,
-                                                    port=443)
+            service_instance = SmartConnectNoSSL(host = HOST, user = USER, pwd = PASSWORD, port = 443)
             atexit.register(Disconnect, service_instance)
             search_index = service_instance.content.searchIndex
         except IOError as e:
+            print("get an err when login to vc {!s}:".format(HOST))
+            print(e)
             pass
 
         if not service_instance:
@@ -241,15 +283,14 @@ if __name__ == "__main__":
 
         root_folder = service_instance.content.rootFolder
 
-        view = get_container_view(service_instance,
-                                           obj_type=[vim.VirtualMachine])
+        view = get_container_view(service_instance, obj_type = [vim.VirtualMachine])
         vm_data = collect_properties(
             service_instance, 
-            view_ref=view,
-            obj_type=vim.VirtualMachine,
-            path_set=vm_properties,
-            include_mors=False
+            view_ref = view,
+            obj_type = vim.VirtualMachine,
+            path_set = vm_properties,
+            include_mors = False
         )
         for i in vm_data:
             i.update({"vc.ip": HOST})
-            data_execute(cursor, i)
+            data_execute(conn, i)

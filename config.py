@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import pymysql
+
 # vCenter 的的认证配置
 VCCONFIG = {
     "Proenv-HL": {
@@ -19,15 +21,30 @@ VCCONFIG = {
     },
 }
 
-# 此项目使用的 MySQL 数据库的认证配置和基础配置
-DB_HOST = "127.0.0.1"
-DB_PORT = 3306
-DB_USER = "zbx_record"
-DB_PASSWORD = ""
-DB_SCHEMA = "zbx_record"
-DB_CHARSET = "utf8"
+# 虚拟机报表数据库类型
+VM_DB_TYPE = "mysql"
+# 虚拟机报表数据库连接字典
+VM_DB_CONN_ARGS_MYSQL = {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "zbx_record",
+    "password": "",
+    "db": "zbx_record",
+    "charset": "utf8",
+    "cursorclass": pymysql.cursors.DictCursor,
+    "autocommit": True,
+}
+VM_DB_CONN_ARGS_PGSQL = {
+}
+VM_DB_CONN_ARGS = DB_CONN_ARGS_MYSQL
+
+REGIST_DB_TYPE = VM_DB_TYPE
+REGIST_DB_ARGS_MYSQL = {k: v for k, v in VM_DB_CONN_ARGS_MYSQL.items()}
 # 由于使用的 group by 没有根据合适的分组方式，因此默认屏蔽掉 group by 的语法限制
-DB_SQL_MODE = "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"
+REGIST_DB_ARGS_MYSQL["sql_mode"] = "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"
+REGIST_DB_ARGS_PGSQL = {k: v for k, v in VM_DB_CONN_ARGS_PGSQL.items()}
+REGIST_DB_ARGS = REGIST_DB_ARGS_PGSQL
+
 
 # zabbix API 认证配置
 ZBX_API_URL = "http://196.1.1.27/zabbix/api_jsonrpc.php"
@@ -35,6 +52,22 @@ ZBX_AUTH_USER = ""
 ZBX_AUTH_PASSWORD = ""
 
 # zabbix 服务器数据认证配置
+ZBX_DB_TYPE = "postgresql"
+ZBX_DB_ARGS_MYSQL = {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "query",
+    "password": "",
+    "charset": "utf8",
+    "cursorclass": pymysql.cursors.DictCursor,
+    "autocommit": True,
+}
+ZBX_DB_ARGS_PGSQL = {
+    
+}
+ZBX_DB_ARGS = ZBX_DB_ARGS_MYSQL
+
+
 ZBX_DB_HOST = "127.0.0.1"
 ZBX_DB_PORT = 3306
 ZBX_DB_USER = "query"

@@ -2,10 +2,12 @@
 # Author: AcidGo
 
 
+import atexit
 import json
 import re
 import logging
 import time
+import psycopg2
 import pymysql
 from urllib.request import Request, urlopen
 
@@ -231,8 +233,19 @@ def init_logger(level):
         datefmt = "%Y-%m-%d %H:%M:%S"
     )
 
+def get_db_conn(type="mysql", kwargs):
+    type = type.lower()
+    if type in ("mysql",):
+        conn = pymysql.connect(**kwargs)
+        cursor = conn.cursor()
+    elif type in ("pgsql", "postgresql"):
+        conn = psycopg2.connect(**kwargs)
+        conn.autocommit = True
+    else:
+        raise Exception("not support the db type now")
+    return conn
 
-def cookdata_mysql(host, port, user, passwd, db, sql_mode, filter_set=set()):
+def cookdata_database(db_type, db_conn, filter_set=set()):
     col_mapping = {
         # VC 地址决定 zabbix proxy
         "vm_vcenter_ip": "",
@@ -250,26 +263,19 @@ def cookdata_mysql(host, port, user, passwd, db, sql_mode, filter_set=set()):
     re_p_ip = re.compile(r"^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")
     res = []
 
-    sql_getvm = "select {!s} from (select * from virtualmachine order by create_time desc limit 10000000) t " \
-        "where vm_powerstate = 'poweredOn' and create_time > date_format(now(), '%y-%m-%d') group by t.vm_name".format(", ".join([i for i in col_mapping]))
+    if db_type in ("mysql", ):
+        sql_getvm = "select {!s} from (select * from virtualmachine order by create_time desc limit 10000000) t " \
+            "where vm_powerstate = 'poweredOn' and create_time > date_format(now(), '%y-%m-%d') group by t.vm_name".format(", ".join([i for i in col_mapping]))
+    elif db_type in ("pgsql", "postgresql"):
+        sql_getvm = ""
+    else:
+        raise Exception("not support the db type {!s}".format(db_type))
     logging.debug("sql_getvm: {!s}".format(sql_getvm))
-    conn = pymysql.connect(
-        host = host,
-        port = port,
-        user = user,
-        password = passwd,
-        db = db,
-        sql_mode = sql_mode,
-        charset = "utf8",
-        cursorclass = pymysql.cursors.DictCursor,
-        autocommit = True
-    )
-    with conn.cursor() as cursor:
+    with db_conn.cursor() as cursor:
         cursor.execute(sql_getvm)
         res_sql_vm = cursor.fetchall()
-    conn.close()
 
-    logging.info("Before cookdata, get row number of data from mysql: {!s}".format(len(res_sql_vm)))
+    logging.info("Before cookdata, get row number of data: {!s}".format(len(res_sql_vm)))
     for row in res_sql_vm:
         res_meta = {
             "host_name": None,
@@ -355,7 +361,7 @@ def cookdata_mysql(host, port, user, passwd, db, sql_mode, filter_set=set()):
         logging.debug("Catch template_lst of res_meta: {!s}".format(res_meta["template_lst"]))
 
         # 6. 设置可见名称
-        # 6.1 如果虚拟机备注可用，则将备注作为课件内容的中间内容
+        # 6.1 如果虚拟机备注可用，则将备注作为可见名称
         if row["vm_annotation"].strip():
             prefix = "LNX" if vm_sys == "linux" else "WIN"
             res_meta["visible_name"] = "{!s}_{!s}_{!s}".format(prefix, row["vm_annotation"], res_meta["agent_interface_ip"])
@@ -370,28 +376,17 @@ def cookdata_mysql(host, port, user, passwd, db, sql_mode, filter_set=set()):
     return res
 
 
-def get_zbxfilter(host, port, user, passwd, db):
+def get_zbxfilter(db_conn):
     """
     """
     filter_set = set()
     sql_zbxnow_ip = "select distinct ip from interface;"
     sql_zbxnow_host = "select distinct host from hosts;"
-    conn = pymysql.connect(
-        host = host,
-        port = port,
-        user = user,
-        password = passwd,
-        db = db,
-        charset = "utf8",
-        cursorclass = pymysql.cursors.DictCursor,
-        autocommit = True
-    )
-    with conn.cursor() as cursor:
+    with db_conn.cursor() as cursor:
         cursor.execute(sql_zbxnow_ip)
         res_zbxnow_ip = cursor.fetchall()
         cursor.execute(sql_zbxnow_host)
         res_zbxnow_host = cursor.fetchall()
-    conn.close()
     for i in res_zbxnow_ip:
         filter_set.add(i["ip"])
     logging.debug("After interface.ip, the filter length is {!s}".format(len(filter_set)))
@@ -405,8 +400,13 @@ if __name__ == "__main__":
     from config import *
     init_logger("debug")
 
+    zbx_db_conn = get_db_conn(ZBX_DB_TYPE, ZBX_DB_ARGS)
+    atexit.register(lambda x: x.close(), conn)
     zbxapi = ZBXApi(ZBX_API_URL, ZBX_AUTH_USER, ZBX_AUTH_PASSWORD)
-    filter_set = get_zbxfilter(ZBX_DB_HOST, ZBX_DB_PORT, ZBX_DB_USER, ZBX_DB_PASSWORD, ZBX_DB_SCHEMA)
+    filter_set = get_zbxfilter(zbx_db_conn)
 
-    raw_data = cookdata_mysql(DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_SCHEMA, DB_SQL_MODE, filter_set)
+    record_db_type = REGIST_DB_TYPE
+    record_db_conn = get_db_conn(REGIST_DB_TYPE, REGIST_DB_ARGS)
+    atexit.register(lambda x: x.close(), conn)
+    raw_data = cookdata_database(record_db_type, record_db_conn, filter_set)
     zbxapi.create_host_some(raw_data)
