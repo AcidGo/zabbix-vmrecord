@@ -59,7 +59,7 @@ class ZBXWorker(object):
             output = ["proxyid"],
             filter = {"host": proxy}
         )
-        proxy_hostid = proxyid_lst[0] if len(proxyid_lst) > 0 else None
+        proxy_hostid = proxyid_lst[0]["proxyid"] if len(proxyid_lst) > 0 else None
 
         res = self._zbx_api.host.create(
             host = host_name,
@@ -84,9 +84,14 @@ class ZBXWorker(object):
         """
         self.reset_host_created()
         for data in data_lst:
-            self.create_host(**data)
+            try:
+                self.create_host(**data)
+            except Exception as e:
+                logging.error("get an err when call create_host: {!s}".format(e))
+                logging.exception(e)
             time.sleep(0.2)
-        self.maintenance()
+        if "ZBX_MAINTENANCE_FOR_CREATED" in globals() and ZBX_MAINTENANCE_FOR_CREATED:
+            self.maintenance()
 
     def maintenance(self):
         """
@@ -180,7 +185,7 @@ class DBRegister(Register):
         }
 
         if len(row.vm_netinfo) > 0:
-            ip_lst = list(set([v for v in row.vm_netinfo.values()]))
+            ip_lst = list(set([v for v in row.vm_netinfo.values() if v is not None]))
         else:
             ip_lst = []
 
@@ -229,10 +234,10 @@ class DBRegister(Register):
             # 默认使用 10050 端口
             res_meta["agent_interface_port"] = 10050
         else:
-            logging.error("cannot found agent listen port, the vm is: {s}.".format(row.vm_name))
+            logging.error("cannot found agent listen port, the vm is: {!s}.".format(row.vm_name))
             return
         if not self.re_p_ip.search(res_meta["agent_interface_ip"]):
-            logging.error("the agent_interface_ip is not a ip format: {s}".format(res_meta["agent_interface_ip"]))
+            logging.error("the agent_interface_ip is not a ip format: {!s}".format(res_meta["agent_interface_ip"]))
             return 
 
         # 5. 确定模板和主机群组
@@ -240,6 +245,7 @@ class DBRegister(Register):
             sys_type, res_meta["group_lst"], res_meta["template_lst"] = self._select_group_template(row)
         except Exception as e:
             logging.error("cannot find the group and template on zabbix: {!s}".format(e))
+            logging.exception(e)
             return
 
         # 6. 设置可见名称
@@ -258,7 +264,11 @@ class DBRegister(Register):
         """
         """
         # engine = create_engine(db_urls, echo=True)
-        engine = create_engine(db_urls, connect_args={"connect_timeout": 10})
+        engine = create_engine(
+            db_urls,
+            json_serializer = lambda obj: json.dumps(obj, ensure_ascii=False),
+            connect_args = {"connect_timeout": 10},
+        )
         Base.metadata.create_all(engine)
         self._db_session = sessionmaker(engine)()
         logging.info("initializing database session is finished")
@@ -282,7 +292,7 @@ class DBRegister(Register):
         elif row.vm_guestfullname in ZBX_SYSPREFIX_LNX:
             sys_type = ZBX_SYSTYPE_LNX
         else:
-            logging.error("Cannot find the OS(vm_guestfullname) on the vm {s}.".format(row.vm_name))
+            logging.error("Cannot find the OS(vm_guestfullname) on the vm {!s}".format(row.vm_name))
             raise Exception()
         return sys_type, ZBX_SYS_GROUP_MAPPING[sys_type], ZBX_TEMPLATE_SYS_MAPPING[sys_type]
 
@@ -320,9 +330,14 @@ if __name__ == "__main__":
         register.zbx_login(ZBX_HOST, **ZBX_LOGIN_ARGS)
         register.db_login(REPORT_DB_URLS)
         filter = register.get_all_host()
+        logging.info(f"getting {len(filter)} length of filter")
         register.set_filter(filter)
+        logging.info("starting into register collect ......")
         register.collect()
+        logging.info("finished left register collect ......")
+        logging.info("starting into register registe ......")
         register.registe()
+        logging.info("finished left register registe ......")
     except Exception as e:
         logging.exception(e)
         exit(1)

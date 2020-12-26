@@ -3,6 +3,7 @@
 import atexit
 import datetime
 import logging
+import json
 import sys
 import time
 
@@ -128,7 +129,7 @@ class VMWorker(object):
         )
         for i in vm_data:
             i.update({"vc.ip": self._args.get("host", "")})
-        self._data = i
+        self._data = vm_data
 
     def _get_container_view(self, obj_type, container=None):
         """从指定层次获取指定对象的搜寻视图。
@@ -143,7 +144,7 @@ class VMWorker(object):
         )
         return view_ref
 
-    def _collect_properties(self, view_ref, object_type, path_set=None, include_mors=False):
+    def _collect_properties(self, view_ref, obj_type, path_set=None, include_mors=False):
         """通过传入的视图遍历指定对象的相关属性。
         """
         collector = self.service_instance.content.propertyCollector
@@ -241,7 +242,7 @@ class DBReporter(Reporter):
             raise Exception("not found mysql conn for reporting data")
         logging.info("starting for report the data to database ......")
         for line in self.get_data():
-            logging.debug("starting deal with getten data: ", line)
+            logging.debug("starting deal with getten data: {!s}".format(line))
             row = VMReport(
                 create_time = self._create_time,
                 vm_vcenter_ip = line["vc.ip"],
@@ -273,7 +274,8 @@ class DBReporter(Reporter):
                 self._db_session.add(row)
                 self._db_session.commit()
             except Exception as e:
-                logging.error("get an err when add row for data: ", e)
+                logging.error("get an err when add row for data: {!s}".format(e))
+                logging.exception(e)
             else:
                 logging.debug("finished for report the row to database: {!s}".format(line["name"]))
         logging.info("finished for report the data to database")
@@ -284,7 +286,11 @@ class DBReporter(Reporter):
         # NOTICE: debug mode
         # engine = create_engine(db_urls, echo=True)
         # EOF NOTICE
-        engine = create_engine(db_urls, connect_args={"connect_timeout": 10})
+        engine = create_engine(
+            db_urls, 
+            json_serializer = lambda obj: json.dumps(obj, ensure_ascii=False),
+            connect_args = {"connect_timeout": 10},
+        )
         Base.metadata.create_all(engine)
         self._db_session = sessionmaker(engine)()
         logging.info("initializing database session is finished")
@@ -348,7 +354,7 @@ if __name__ == "__main__":
     # ]
     # ########## EOF Self Tes
 
-    init_logger("debug")
+    init_logger("info")
     try:
         reporter = DBReporter()
         reporter.db_login(REPORT_DB_URLS)
@@ -363,6 +369,7 @@ if __name__ == "__main__":
                 reporter.report()
             except Exception as e:
                 logging.error("get an err when deal with reporting for vc {!s}: {!s}".format(vc, e))
+                logging.exception(e)
             logging.info("finished deal with reporting for vc {!s}".format(vc))
     except Exception as e:
         logging.exception(e)

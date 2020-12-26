@@ -1,28 +1,21 @@
 # 上报的数据库源
 # REPORT_DB_URLS = "mysql+pymysql://vm:abcd1234@192.168.66.31:3308/vm"
-REPORT_DB_URLS = "postgresql+psycopg2://vm:abcd1234@192.168.66.31:5432/vm"
+REPORT_DB_URLS = "postgresql+psycopg2://zabbix:zabbix@10.10.31.153:5432/zabbix"
+
+# 是否需要将新创建主机加入维护模式
+ZBX_MAINTENANCE_FOR_CREATED = True
 
 # vCenter 的的认证配置
 VCCONFIG = {
-    "Proenv-A": {
-        "host": "",
-        "user": "",
-        "pwd": ""
-    },
-    "ProEnv-B": {
-        "host": "",
-        "user": "",
-        "pwd": ""
-    },
-    "ProEnv-C": {
-        "host": "",
+    "Testenv-A": {
+        "host": "10.10.10.39",
         "user": "",
         "pwd": ""
     },
 }
 
 # Zabbix API 登录信息
-ZBX_HOST = "http://192.168.66.50"
+ZBX_HOST = "http://10.10.32.35/zabbix/api_jsonrpc.php"
 ZBX_LOGIN_ARGS = {
     "user": "Admin",
     "password": "zabbix",
@@ -30,17 +23,11 @@ ZBX_LOGIN_ARGS = {
 
 # 每个 VC 对应的 zabbix proxy 成员
 ZBX_PROXY_MEMBER = {
-    "A": ["192.168.66.27", "192.168.66.28"],
-    "B": ["192.168.67.27"],
-    "C": ["192.168.68.27"],
+    "Testenv-A": ["10.10.32.44"],
 }
 
 # 每个 VC 对应的 zabbix proxy 成员
-ZBX_PROXY_VC_MAPPING = {
-    "196.1.1.1": "A",
-    "196.1.1.2": "B",
-    "196.1.1.3": "C",
-}
+ZBX_PROXY_VC_MAPPING = {v["host"]: k for k, v in VCCONFIG.items()}
 
 # 操作系统简称类别命名
 ZBX_SYSTYPE_WIN = "windows"
@@ -69,11 +56,14 @@ ZBX_SYSPREFIX_WIN = (
     "Microsoft Windows Server 2008 R2 (64-bit)",
     "Microsoft Windows Server 2012 (64 位)",
     "Microsoft Windows Server 2016 (64 位)",
+    "Microsoft Windows Server 2016 或更高版本 (64 位)",
     "Microsoft Windows XP Professional (32 位)",
 )
 
 # zabbix 目前支持的 Linux 操作系统
 ZBX_SYSPREFIX_LNX = (
+    "CentOS 4/5 或更高版本 (32 位)",
+    "CentOS 4/5 或更高版本 (64 位)",
     "CentOS 4/5/6 (32 位)",
     "CentOS 4/5/6 (32-bit)",
     "CentOS 4/5/6/7 (64 位)",
@@ -94,6 +84,6 @@ ZBX_SYSPREFIX_LNX = (
 
 # zabbix 中根据添加的主机组来指定配置模板
 ZBX_TEMPLATE_SYS_MAPPING = {
-    "windows": ["Template OS Windows by Zabbix agent"],
-    "linux": ["Template OS Linux by Zabbix agent"]
+    "windows": ["Template OS Windows"],
+    "linux": ["Template OS Linux", "DGB APP Monitor New"]
 }
