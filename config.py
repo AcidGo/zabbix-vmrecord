@@ -1,94 +1,50 @@
-# -*- coding: utf-8 -*-
-
-import pymysql
+# 上报的数据库源
+# REPORT_DB_URLS = "mysql+pymysql://vm:abcd1234@192.168.66.31:3308/vm"
+REPORT_DB_URLS = "postgresql+psycopg2://vm:abcd1234@192.168.66.31:5432/vm"
 
 # vCenter 的的认证配置
 VCCONFIG = {
-    "Proenv-HL": {
-        "vchost": "",
-        "vcuser": "",
-        "vcpassword": ""
+    "Proenv-A": {
+        "host": "",
+        "user": "",
+        "pwd": ""
     },
-    "ProEnv-SSH": {
-        "vchost": "",
-        "vcuser": "",
-        "vcpassword": ""
+    "ProEnv-B": {
+        "host": "",
+        "user": "",
+        "pwd": ""
     },
-    "ProEnv-ZZ": {
-        "vchost": "",
-        "vcuser": "",
-        "vcpassword": ""
+    "ProEnv-C": {
+        "host": "",
+        "user": "",
+        "pwd": ""
     },
 }
 
-# 虚拟机报表数据库类型
-VM_DB_TYPE = "mysql"
-# 虚拟机报表数据库连接字典
-VM_DB_CONN_ARGS_MYSQL = {
-    "host": "127.0.0.1",
-    "port": 3306,
-    "user": "zbx_record",
-    "password": "",
-    "db": "zbx_record",
-    "charset": "utf8",
-    "cursorclass": pymysql.cursors.DictCursor,
-    "autocommit": True,
-}
-VM_DB_CONN_ARGS_PGSQL = {
-}
-VM_DB_CONN_ARGS = DB_CONN_ARGS_MYSQL
-
-REGIST_DB_TYPE = VM_DB_TYPE
-REGIST_DB_ARGS_MYSQL = {k: v for k, v in VM_DB_CONN_ARGS_MYSQL.items()}
-# 由于使用的 group by 没有根据合适的分组方式，因此默认屏蔽掉 group by 的语法限制
-REGIST_DB_ARGS_MYSQL["sql_mode"] = "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"
-REGIST_DB_ARGS_PGSQL = {k: v for k, v in VM_DB_CONN_ARGS_PGSQL.items()}
-REGIST_DB_ARGS = REGIST_DB_ARGS_PGSQL
-
-
-# zabbix API 认证配置
-ZBX_API_URL = "http://196.1.1.27/zabbix/api_jsonrpc.php"
-ZBX_AUTH_USER = ""
-ZBX_AUTH_PASSWORD = ""
-
-# zabbix 服务器数据认证配置
-ZBX_DB_TYPE = "postgresql"
-ZBX_DB_ARGS_MYSQL = {
-    "host": "127.0.0.1",
-    "port": 3306,
-    "user": "query",
-    "password": "",
-    "charset": "utf8",
-    "cursorclass": pymysql.cursors.DictCursor,
-    "autocommit": True,
-}
-ZBX_DB_ARGS_PGSQL = {
-    
-}
-ZBX_DB_ARGS = ZBX_DB_ARGS_MYSQL
-
-
-ZBX_DB_HOST = "127.0.0.1"
-ZBX_DB_PORT = 3306
-ZBX_DB_USER = "query"
-ZBX_DB_PASSWORD = ""
-ZBX_DB_SCHEMA = "zabbix"
-ZBX_DB_CHARSET = "utf8"
-
-
-# 对每个数据中心的 VC 的连接地址与别名对应
-ZBX_PROXY_VC_MAPPING = {
-    "196.1.1.101": "SSH",
-    "180.18.225.101": "HL",
-    "196.255.1.20": "ZZ",
+# Zabbix API 登录信息
+ZBX_HOST = "http://192.168.66.50"
+ZBX_LOGIN_ARGS = {
+    "user": "Admin",
+    "password": "zabbix",
 }
 
 # 每个 VC 对应的 zabbix proxy 成员
 ZBX_PROXY_MEMBER = {
-    "SSH": ["196.1.1.26"],
-    "HL": ["180.18.225.218"],
-    "ZZ": ["196.255.1.25"],
+    "A": ["192.168.66.27", "192.168.66.28"],
+    "B": ["192.168.67.27"],
+    "C": ["192.168.68.27"],
 }
+
+# 每个 VC 对应的 zabbix proxy 成员
+ZBX_PROXY_VC_MAPPING = {
+    "196.1.1.1": "A",
+    "196.1.1.2": "B",
+    "196.1.1.3": "C",
+}
+
+# 操作系统简称类别命名
+ZBX_SYSTYPE_WIN = "windows"
+ZBX_SYSTYPE_LNX = "linux"
 
 # 将虚拟机的操作系统对应各自在 zabbix 上的主机组
 ZBX_SYS_GROUP_MAPPING = {
@@ -138,6 +94,6 @@ ZBX_SYSPREFIX_LNX = (
 
 # zabbix 中根据添加的主机组来指定配置模板
 ZBX_TEMPLATE_SYS_MAPPING = {
-    "windows": ["DGB OS Windows"],
-    "linux": ["DGB OS Linux", "DGB APP Monitor New"]
+    "windows": ["Template OS Windows by Zabbix agent"],
+    "linux": ["Template OS Linux by Zabbix agent"]
 }
