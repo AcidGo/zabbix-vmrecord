@@ -258,7 +258,7 @@ class DBRegister(Register):
         """
         """
         # engine = create_engine(db_urls, echo=True)
-        engine = create_engine(db_urls)
+        engine = create_engine(db_urls, connect_args={"connect_timeout": 10})
         Base.metadata.create_all(engine)
         self._db_session = sessionmaker(engine)()
         logging.info("initializing database session is finished")
