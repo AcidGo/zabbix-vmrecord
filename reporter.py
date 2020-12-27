@@ -114,7 +114,7 @@ class VMWorker(object):
     def get_data(self):
         return self._data
 
-    def collection(self):
+    def collect(self):
         """收集虚拟机的信息。
         """
         if not self.service_instance:
@@ -362,7 +362,7 @@ if __name__ == "__main__":
             logging.info("starting deal with reporting for vc {!s}".format(vc))
             try:
                 reporter.vc_login(**vc_login_args)
-                reporter.collection()
+                reporter.collect()
                 # NOTICE: only testing
                 # reporter.set_data(mock_data)
                 # EOF NOTICE

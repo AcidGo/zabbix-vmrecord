@@ -35,8 +35,8 @@ ZBX_SYSTYPE_LNX = "linux"
 
 # 将虚拟机的操作系统对应各自在 zabbix 上的主机组
 ZBX_SYS_GROUP_MAPPING = {
-    "windows": ["Windows服务器"],
-    "linux": ["Linux服务器"]
+    ZBX_SYSTYPE_WIN: ["Windows服务器"],
+    ZBX_SYSTYPE_LNX: ["Linux服务器"]
 }
 
 # zabbix 目前支持的 windows 操作系统
@@ -84,6 +84,6 @@ ZBX_SYSPREFIX_LNX = (
 
 # zabbix 中根据添加的主机组来指定配置模板
 ZBX_TEMPLATE_SYS_MAPPING = {
-    "windows": ["Template OS Windows"],
-    "linux": ["Template OS Linux", "DGB APP Monitor New"]
+    ZBX_SYSTYPE_WIN: ["Template OS Windows"],
+    ZBX_SYSTYPE_LNX: ["Template OS Linux", "APP Monitor New"]
 }
