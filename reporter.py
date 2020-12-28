@@ -297,7 +297,7 @@ class DBReporter(Reporter):
 
 def init_logger(level, logfile=None):
     """日志功能初始化。
-    如果使用日志文件记录，那么则默认使用 RotatinFileHandler 的大小轮询方式，
+    如果使用日志文件记录，那么则默认使用 RotatingFileHandler 的大小轮询方式，
     默认每个最大 10 MB，最多保留 5 个。
     Args:
         level: 设定的最低日志级别。
@@ -305,6 +305,7 @@ def init_logger(level, logfile=None):
     """
     import os
     import sys
+    from logging.handlers import RotatingFileHandler
     if not logfile:
         logging.basicConfig(
             level = getattr(logging, level.upper()),
