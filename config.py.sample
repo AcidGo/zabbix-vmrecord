@@ -1,66 +1,42 @@
-# -*- coding: utf-8 -*-
+# 上报的数据库源
+# REPORT_DB_URLS = "mysql+pymysql://vm:abcd1234@192.168.66.31:3308/vm"
+REPORT_DB_URLS = "postgresql+psycopg2://zabbix:zabbix@10.10.31.153:5432/zabbix"
+
+# 是否需要将新创建主机加入维护模式
+ZBX_MAINTENANCE_FOR_CREATED = True
 
 # vCenter 的的认证配置
 VCCONFIG = {
-    "Proenv-HL": {
-        "vchost": "",
-        "vcuser": "",
-        "vcpassword": ""
-    },
-    "ProEnv-SSH": {
-        "vchost": "",
-        "vcuser": "",
-        "vcpassword": ""
-    },
-    "ProEnv-ZZ": {
-        "vchost": "",
-        "vcuser": "",
-        "vcpassword": ""
+    "Testenv-A": {
+        "host": "10.10.10.39",
+        "user": "",
+        "pwd": ""
     },
 }
 
-# 此项目使用的 MySQL 数据库的认证配置和基础配置
-DB_HOST = "127.0.0.1"
-DB_PORT = 3306
-DB_USER = "zbx_record"
-DB_PASSWORD = ""
-DB_SCHEMA = "zbx_record"
-DB_CHARSET = "utf8"
-# 由于使用的 group by 没有根据合适的分组方式，因此默认屏蔽掉 group by 的语法限制
-DB_SQL_MODE = "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"
-
-# zabbix API 认证配置
-ZBX_API_URL = "http://196.1.1.27/zabbix/api_jsonrpc.php"
-ZBX_AUTH_USER = ""
-ZBX_AUTH_PASSWORD = ""
-
-# zabbix 服务器数据认证配置
-ZBX_DB_HOST = "127.0.0.1"
-ZBX_DB_PORT = 3306
-ZBX_DB_USER = "query"
-ZBX_DB_PASSWORD = ""
-ZBX_DB_SCHEMA = "zabbix"
-ZBX_DB_CHARSET = "utf8"
-
-
-# 对每个数据中心的 VC 的连接地址与别名对应
-ZBX_PROXY_VC_MAPPING = {
-    "196.1.1.101": "SSH",
-    "180.18.225.101": "HL",
-    "196.255.1.20": "ZZ",
+# Zabbix API 登录信息
+ZBX_HOST = "http://10.10.32.35/zabbix/api_jsonrpc.php"
+ZBX_LOGIN_ARGS = {
+    "user": "Admin",
+    "password": "zabbix",
 }
 
 # 每个 VC 对应的 zabbix proxy 成员
 ZBX_PROXY_MEMBER = {
-    "SSH": ["196.1.1.26"],
-    "HL": ["180.18.225.218"],
-    "ZZ": ["196.255.1.25"],
+    "Testenv-A": ["10.10.32.44"],
 }
+
+# 每个 VC 对应的 zabbix proxy 成员
+ZBX_PROXY_VC_MAPPING = {v["host"]: k for k, v in VCCONFIG.items()}
+
+# 操作系统简称类别命名
+ZBX_SYSTYPE_WIN = "windows"
+ZBX_SYSTYPE_LNX = "linux"
 
 # 将虚拟机的操作系统对应各自在 zabbix 上的主机组
 ZBX_SYS_GROUP_MAPPING = {
-    "windows": ["Windows服务器"],
-    "linux": ["Linux服务器"]
+    ZBX_SYSTYPE_WIN: ["Windows服务器"],
+    ZBX_SYSTYPE_LNX: ["Linux服务器"]
 }
 
 # zabbix 目前支持的 windows 操作系统
@@ -80,11 +56,14 @@ ZBX_SYSPREFIX_WIN = (
     "Microsoft Windows Server 2008 R2 (64-bit)",
     "Microsoft Windows Server 2012 (64 位)",
     "Microsoft Windows Server 2016 (64 位)",
+    "Microsoft Windows Server 2016 或更高版本 (64 位)",
     "Microsoft Windows XP Professional (32 位)",
 )
 
 # zabbix 目前支持的 Linux 操作系统
 ZBX_SYSPREFIX_LNX = (
+    "CentOS 4/5 或更高版本 (32 位)",
+    "CentOS 4/5 或更高版本 (64 位)",
     "CentOS 4/5/6 (32 位)",
     "CentOS 4/5/6 (32-bit)",
     "CentOS 4/5/6/7 (64 位)",
@@ -105,6 +84,6 @@ ZBX_SYSPREFIX_LNX = (
 
 # zabbix 中根据添加的主机组来指定配置模板
 ZBX_TEMPLATE_SYS_MAPPING = {
-    "windows": ["DGB OS Windows"],
-    "linux": ["DGB OS Linux", "DGB APP Monitor New"]
+    ZBX_SYSTYPE_WIN: ["Template OS Windows"],
+    ZBX_SYSTYPE_LNX: ["Template OS Linux", "APP Monitor New"]
 }
